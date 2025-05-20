@@ -7,6 +7,8 @@ import org.example.expensetracker.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -14,6 +16,7 @@ import java.util.Optional;
 
 @Service
 public class ExpenseService {
+    private static final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
 
     @Autowired
     private ExpenseRepository expenseRepository;
@@ -33,31 +36,47 @@ public class ExpenseService {
     }
 
     public Expense createExpense(Expense expense) {
-        User user = getCurrentUser();
-        expense.setUser(user);
-        return expenseRepository.save(expense);
+        try {
+            logger.info("Creating expense: {}", expense);
+            
+            // Validate expense
+            if (expense.getUser() == null || expense.getUser().getId() == null) {
+                throw new IllegalArgumentException("User ID is required");
+            }
+            
+            if (expense.getAmount() == null || expense.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Expense amount must be greater than 0");
+            }
+            
+            if (expense.getDate() == null) {
+                throw new IllegalArgumentException("Date is required");
+            }
+
+            // Save the expense
+            Expense savedExpense = expenseRepository.save(expense);
+            logger.info("Expense created successfully with ID: {}", savedExpense.getId());
+            return savedExpense;
+        } catch (Exception e) {
+            logger.error("Error creating expense: ", e);
+            throw new RuntimeException("Failed to create expense: " + e.getMessage());
+        }
     }
 
-    public Expense updateExpense(Long id, Expense expenseDetails) {
-        User user = getCurrentUser();
-        Expense expense = expenseRepository.findById(id)
-                .filter(e -> e.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new RuntimeException("Expense not found or not yours"));
-        // update fields...
-        expense.setTitle(expenseDetails.getTitle());
-        expense.setAmount(expenseDetails.getAmount());
-        expense.setDate(expenseDetails.getDate());
-        expense.setCategory(expenseDetails.getCategory());
-        expense.setDescription(expenseDetails.getDescription());
-        return expenseRepository.save(expense);
+    public Expense updateExpense(Long id, Expense expense) {
+        Expense existingExpense = expenseRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Expense not found"));
+        
+        existingExpense.setTitle(expense.getTitle());
+        existingExpense.setAmount(expense.getAmount());
+        existingExpense.setDate(expense.getDate());
+        existingExpense.setCategory(expense.getCategory());
+        existingExpense.setDescription(expense.getDescription());
+        
+        return expenseRepository.save(existingExpense);
     }
 
     public void deleteExpense(Long id) {
-        User user = getCurrentUser();
-        Expense expense = expenseRepository.findById(id)
-                .filter(e -> e.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new RuntimeException("Expense not found or not yours"));
-        expenseRepository.delete(expense);
+        expenseRepository.deleteById(id);
     }
 
     public User getCurrentUser() {
@@ -78,5 +97,9 @@ public class ExpenseService {
         } else {
             return expenseRepository.findByUser(user);
         }
+    }
+
+    public List<Expense> getUserExpenses(Long userId) {
+        return expenseRepository.findByUserId(userId);
     }
 }

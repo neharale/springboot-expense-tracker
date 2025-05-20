@@ -5,14 +5,19 @@ import Login from './components/Login';
 import UserProfile from './components/UserProfile';
 import ExpenseForm from './components/ExpenseForm';
 import ExpenseList from './components/ExpenseList';
+import BudgetForm from './components/BudgetForm';
+import BudgetList from './components/BudgetList';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [refresh, setRefresh] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showBudgets, setShowBudgets] = useState(false);
+  const [editingBudget, setEditingBudget] = useState(null);
 
   const handleExpenseChanged = () => setRefresh(!refresh);
+  const handleBudgetChanged = () => setRefresh(!refresh);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -57,11 +62,31 @@ function App() {
               >
                 {showProfile ? 'Hide Profile' : 'Show Profile'}
               </Button>
+              <Button
+                variant="contained"
+                color={showBudgets ? 'secondary' : 'primary'}
+                onClick={() => setShowBudgets(!showBudgets)}
+              >
+                {showBudgets ? 'Hide Budgets' : 'Show Budgets'}
+              </Button>
               <Button variant="outlined" color="error" onClick={handleLogout}>
                 Logout
               </Button>
             </Box>
             {showProfile && <UserProfile />}
+            {showBudgets && (
+              <>
+                <BudgetForm
+                  onBudgetAdded={handleBudgetChanged}
+                  editingBudget={editingBudget}
+                  onCancelEdit={() => setEditingBudget(null)}
+                />
+                <BudgetList
+                  onEdit={setEditingBudget}
+                  onBudgetChanged={handleBudgetChanged}
+                />
+              </>
+            )}
             <ExpenseForm
               onExpenseAdded={handleExpenseChanged}
               editingExpense={editingExpense}

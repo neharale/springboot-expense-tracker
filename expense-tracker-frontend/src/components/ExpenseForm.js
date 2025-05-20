@@ -11,39 +11,123 @@ function ExpenseForm({ onExpenseAdded, editingExpense, onCancelEdit }) {
     description: ''
   });
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (editingExpense) {
-      setForm(editingExpense);
+      setForm({
+        title: editingExpense.title || '',
+        amount: editingExpense.amount || '',
+        date: editingExpense.date || '',
+        category: editingExpense.category || '',
+        description: editingExpense.description || ''
+      });
     } else {
-      setForm({ title: '', amount: '', date: '', category: '', description: '' });
+      setForm({
+        title: '',
+        amount: '',
+        date: '',
+        category: '',
+        description: ''
+      });
     }
   }, [editingExpense]);
 
   const handleChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setError(''); // Clear error when user makes changes
+  };
+
+  const validateForm = () => {
+    if (!form.title) {
+      setError('Title is required');
+      return false;
+    }
+    if (!form.amount || form.amount <= 0) {
+      setError('Amount must be greater than 0');
+      return false;
+    }
+    if (!form.date) {
+      setError('Date is required');
+      return false;
+    }
+    if (!form.category) {
+      setError('Category is required');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async e => {
     e.preventDefault();
+    setError('');
+    setMessage('');
+
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      if (editingExpense) {
-        await axios.put(`http://localhost:8080/api/expenses/${editingExpense.id}`, form, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setMessage('Expense updated!');
-      } else {
-        await axios.post('http://localhost:8080/api/expenses', form, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setMessage('Expense added!');
+      if (!token) {
+        setError('You must be logged in to create an expense');
+        return;
       }
-      setForm({ title: '', amount: '', date: '', category: '', description: '' });
+
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Format the data properly
+      const expenseData = {
+        ...form,
+        amount: parseFloat(form.amount),
+        date: form.date
+      };
+
+      console.log('Sending expense data:', expenseData); // Debug log
+
+      if (editingExpense) {
+        const response = await axios.put(
+          `http://localhost:8080/api/expenses/${editingExpense.id}`,
+          expenseData,
+          { headers }
+        );
+        console.log('Update response:', response.data); // Debug log
+        setMessage('Expense updated successfully!');
+      } else {
+        const response = await axios.post(
+          'http://localhost:8080/api/expenses',
+          expenseData,
+          { headers }
+        );
+        console.log('Create response:', response.data); // Debug log
+        setMessage('Expense added successfully!');
+      }
+
+      // Reset form
+      setForm({
+        title: '',
+        amount: '',
+        date: '',
+        category: '',
+        description: ''
+      });
+
       if (onExpenseAdded) onExpenseAdded();
       if (onCancelEdit) onCancelEdit();
     } catch (err) {
-      setMessage('Failed to save expense');
+      console.error('Error saving expense:', err);
+      console.error('Error response:', err.response); // Debug log
+      
+      if (err.response) {
+        setError(err.response.data || 'Failed to save expense. Please try again.');
+      } else if (err.request) {
+        setError('No response from server. Please check your connection.');
+      } else {
+        setError('Error setting up the request: ' + err.message);
+      }
     }
   };
 
@@ -112,6 +196,7 @@ function ExpenseForm({ onExpenseAdded, editingExpense, onCancelEdit }) {
         </Box>
       </form>
       {message && <Alert severity={message.includes('added') || message.includes('updated') ? 'success' : 'error'} sx={{ mt: 2 }}>{message}</Alert>}
+      {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
     </Box>
   );
 }
