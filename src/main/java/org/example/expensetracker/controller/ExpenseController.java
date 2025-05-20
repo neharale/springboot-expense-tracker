@@ -39,4 +39,13 @@ public class ExpenseController {
         public void deleteExpense(@PathVariable Long id) {
                 expenseService.deleteExpense(id);
         }
+
+        @GetMapping("/filter")
+        public List<Expense> filterExpenses(
+                @RequestParam(required = false) String category,
+                @RequestParam(required = false) String startDate,
+                @RequestParam(required = false) String endDate
+        ) {
+                return expenseService.filterExpenses(category, startDate, endDate);
+        }
 }
